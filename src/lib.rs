@@ -3,6 +3,7 @@ pub mod join;
 pub mod order;
 pub mod print;
 pub mod read;
+pub mod sql;
 pub mod value;
 
 use std::{
