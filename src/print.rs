@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::Table;
+use crate::table::Table;
 
 impl Table {
     /// prints the table contents in nice columns on the command line
@@ -70,7 +70,7 @@ impl Table {
             for col in self.iter_colums() {
                 let e = widths.get_mut(&col).unwrap();
                 let index = self.get_index(col);
-                *e = (*e).max(record.get(index).len());
+                *e = (*e).max(record.get(index).string_len());
             }
         }
         widths
@@ -96,7 +96,7 @@ impl Table {
             for col in self.select_columns(columns) {
                 let e = widths.get_mut(&col).unwrap();
                 let index = self.get_index(&col);
-                *e = (*e).max(record.get(index).len());
+                *e = (*e).max(record.get(index).string_len());
             }
         }
         widths

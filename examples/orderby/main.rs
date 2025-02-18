@@ -1,7 +1,7 @@
-use csv::Table;
+use csv::table::Table;
 
 fn main() {
-    let table = Table::from_csv(include_str!("data/table.csv"), "\t");
+    let table = Table::from_csv(include_str!("data/table.csv"), Some("\t"));
     println!("not ordered:");
     table.select("*");
 

@@ -1,8 +1,8 @@
-use csv::Table;
+use csv::table::Table;
 
 fn main() {
-    let left = Table::from_csv(include_str!("data/left.csv"), "\t");
-    let right = Table::from_csv(include_str!("data/right.csv"), "\t");
+    let left = Table::from_csv(include_str!("data/left.csv"), Some("\t"));
+    let right = Table::from_csv(include_str!("data/right.csv"), Some("\t"));
     println!("left:");
     left.select("*");
     println!("\nright:");

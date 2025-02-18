@@ -1,4 +1,4 @@
-use crate::Table;
+use crate::table::Table;
 
 impl Table {
     pub fn left_join(&self, right: &Table, left_col: &str, right_col: &str, outer: bool) -> Table {
