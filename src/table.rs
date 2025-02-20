@@ -153,7 +153,8 @@ impl Iterator for TableIter {
     type Item = Record;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.root_page.borrow().get(self.index)
+        self.index += 1;
+        self.root_page.borrow().get(self.index - 1)
     }
 }
 

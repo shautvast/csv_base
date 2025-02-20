@@ -62,14 +62,14 @@ impl Page {
         self.data.splice(start..self.index_pos as usize, bytes);
     }
 
-    pub fn get(&self, index: usize) -> Option<Record> {
-        if index < self.n_records {
-            let index = BigEndian::read_u16(&self.data[index * 2..=index * 2 + 1]);
-            let (nbytes, len) = varint::read(&self.data[index as usize..]);
+    pub fn get(&self, row_index: usize) -> Option<Record> {
+        if row_index < self.n_records {
+            let physical_index = BigEndian::read_u16(&self.data[row_index * 2..=row_index * 2 + 1]);
+            let (bytes_read, len) = varint::read(&self.data[physical_index as usize..]);
             Some(
                 (
                     len,
-                    &self.data[nbytes + index as usize..nbytes + index as usize + len as usize],
+                    &self.data[bytes_read + physical_index as usize..=bytes_read + physical_index as usize + len as usize],
                 )
                     .into(),
             )

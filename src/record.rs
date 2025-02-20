@@ -88,15 +88,17 @@ impl From<Record> for Vec<u8> {
 // needs improving, for clarity get rid of the tuple
 impl Into<Record> for (u64, &[u8]) {
     fn into(self) -> Record {
-        let (len, data) = self;
-        let len = len as usize; //meh
-        let (mut offset, rowid) = varint::read(data);
-
+        let (_, data) = self;
+        let mut offset = 0;
+        let (inc, rowid) = varint::read(data);
+        offset += inc;
         let mut datatypes = vec![];
+        let (inc, dt_len) = varint::read(&data[offset..]);
+        offset += inc;
+        let end_of_dt = offset + dt_len as usize - 1; // why -1?
+                                                      //read n of fields
 
-        //read n of fields
-
-        while offset < len {
+        while offset < end_of_dt {
             //WRONG, read this len first from the buffer
             let (inc, datatype) = varint::read(&data[offset..]);
             datatypes.push(datatype);
@@ -107,27 +109,24 @@ impl Into<Record> for (u64, &[u8]) {
         let mut values: Vec<Value> = vec![];
         for dt in datatypes {
             match dt {
-                13.. if dt % 2 == 0 => {
-                    let len = ((dt >> 1) - 13) as usize;
-                    if let Ok(text) = String::from_utf8(data[offset..len].to_vec()) {
-                        values.push(text.into());
-                    }
+                13.. if dt % 2 == 1 => {
+                    let len = ((dt - 13) >> 1) as usize;
+                    values.push(Value::new(dt, data[offset..offset + len].to_vec()));
                     offset += len;
                 }
                 12.. if dt % 2 == 0 => {
                     let len = ((dt >> 1) - 12) as usize;
-                    // no blobs yet
+                    values.push(Value::new(dt, data[offset..offset + len].to_vec()));
                     offset += len;
                 }
-                9 => values.push(1.into()),
-                8 => values.push(0.into()),
+                8 | 9 => values.push(Value::new(dt, vec![])),
                 7 => {
-                    values.push(BigEndian::read_f64(&data[offset..offset + 8]).into());
+                    values.push(Value::new(dt, data[offset..offset + 8].to_vec()));
                     offset += 8;
                 }
                 1..=6 => {
-                    let (inc, v) = read_int(&data[offset..], dt);
-                    values.push(v.into());
+                    let inc = read_int_len(dt);
+                    values.push(Value::new(dt, data[offset..offset + inc].to_vec()));
                     offset += inc;
                 }
                 0 => {
@@ -141,13 +140,12 @@ impl Into<Record> for (u64, &[u8]) {
     }
 }
 
-fn read_int(buf: &[u8], datatype: u64) -> (usize, i64) {
-    let nb = match datatype {
+fn read_int_len(datatype: u64) -> usize {
+    match datatype {
         6 => 8,
         5 => 6,
         _ => datatype as usize,
-    };
-    (nb, BigEndian::read_i64(&buf[..nb]))
+    }
 }
 
 impl Default for Record {

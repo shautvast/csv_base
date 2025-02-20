@@ -61,11 +61,19 @@ pub enum Datatype {
 }
 
 impl Value {
-    fn new(datatype: u64, data: Vec<u8>) -> Self {
+    pub(crate) fn new(datatype: u64, data: Vec<u8>) -> Self {
         Self {
             datatype,
             data,
             datatype_bytes: varint::write(datatype),
+        }
+    }
+
+    pub(crate) fn from_raw(datatype_bytes: Vec<u8>, data: Vec<u8>) -> Self {
+        Self{
+            datatype: varint::read(&datatype_bytes).1,
+            datatype_bytes,
+            data,
         }
     }
 
@@ -188,10 +196,10 @@ impl Into<Value> for &str {
 
 impl Into<Value> for String {
     fn into(self) -> Value {
-        if let Ok(f) = self.parse::<f64>() {
-            Value::from_f64(f)
-        } else if let Ok(i) = self.parse::<i64>() {
+        if let Ok(i) = self.parse::<i64>() {
             Value::from_i64(i)
+        } else if let Ok(f) = self.parse::<f64>() {
+            Value::from_f64(f)
         } else {
             Value::from_text(strip_quotes(self))
         }
