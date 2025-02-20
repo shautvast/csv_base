@@ -1,7 +1,7 @@
 use crate::table::Table;
 
-use std::fs;
 use crate::record::Record;
+use std::fs;
 
 const EOL: &str = "\n";
 
@@ -31,7 +31,7 @@ impl Table {
                     //TODO quoted values
                     record.add_value(value);
                 }
-                table.add_record(record);
+                table.insert(record);
             }
         }
         table

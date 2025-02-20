@@ -15,15 +15,15 @@ pub enum PageType {
 #[derive(Debug)]
 pub struct Page {
     pagetype: PageType,
-    id: usize,
-    start: Value,
-    end: Value,
-    data: Vec<u8>,
-    index_pos: u16,
-    data_pos: u16,
-    key: usize,
-    children: Vec<Page>,
-    n_records: usize,
+    id: usize,           // rowid
+    start: Value,        // first value in page
+    end: Value,          // last value in page
+    data: Vec<u8>,       // page data
+    index_pos: u16,      // current write position for indexes (to the page data)
+    data_pos: u16, // current write position for data (written backwards from the end of the page)
+    key: usize,    // ?
+    children: Vec<Page>, // child pages
+    n_records: usize, // nr of records in the page
 }
 
 impl Page {

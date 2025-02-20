@@ -10,19 +10,24 @@ pub struct Record {
 }
 
 impl Record {
+    /// returns the length of the string representation,
+    /// for display purposes
     pub fn string_len(&self) -> usize {
         self.values.iter().map(Value::string_len).sum()
     }
 
+    /// returns the length of the internal byte representation
     pub fn bytes_len(&self) -> u16 {
         let record_length: u16 = self.values.iter().map(Value::bytes_len).sum();
         record_length + 1
     }
 
+    /// pushes a value to the record
     pub fn add_value(&mut self, value: impl Into<Value>) {
         self.values.push(value.into());
     }
 
+    /// gets the value at the column index of the record
     pub fn get(&self, index: usize) -> &Value {
         self.values.get(index).unwrap() //TODO
     }
@@ -31,6 +36,7 @@ impl Record {
 impl Add for &Record {
     type Output = Record;
 
+    /// returns a new records that is the 'join' of the two inputs
     fn add(self, rhs: Self) -> Self::Output {
         let mut sum = Record::default();
         sum.values.append(&mut self.values.clone());
@@ -40,17 +46,23 @@ impl Add for &Record {
 }
 
 impl From<Record> for Vec<u8> {
+    /// returns the byte reprsentation of the record
+    /// which will be stored physically in the page (and some day on disk)
     fn from(mut record: Record) -> Vec<u8> {
-        let record_length = record.bytes_len();
-        let mut length_bytes = varint::write(u64::from(record_length));
-        let mut rowid_bytes = varint::write(record.rowid);
+        let record_length = record.bytes_len(); // len of all the values
+        let mut length_bytes = varint::write(u64::from(record_length)); // the length of the above in bytes representation
+        let mut rowid_bytes = varint::write(record.rowid); // the bytes representation of the rowid
 
         let mut buffer =
             Vec::with_capacity(length_bytes.len() + rowid_bytes.len() + record_length as usize);
         buffer.append(&mut length_bytes);
         buffer.append(&mut rowid_bytes);
 
-        // 'The initial portion of the payload that does not spill to overflow pages.'
+        // sqlite docs: 'The initial portion of the payload that does not spill to overflow pages.'
+        // the length of the byte representation of all value types in the record
+        // -> after the record header, first all types (text, int, float etc) for the record are written
+        // after that come the values themselves
+        // so decoders first read this value to know how many types there are (how many bytes to read to decode the type bytes)
         let length_of_encoded_column_types: usize =
             record.values.iter().map(|v| v.datatype_bytes.len()).sum();
         buffer.append(&mut varint::write(
@@ -70,6 +82,10 @@ impl From<Record> for Vec<u8> {
     }
 }
 
+/// returns the Record from the byte representation
+/// tuple (len, byte buffer)
+/// len is the length that was read from the bytes before calling this
+// needs improving, for clarity get rid of the tuple
 impl Into<Record> for (u64, &[u8]) {
     fn into(self) -> Record {
         let (len, data) = self;
@@ -77,14 +93,17 @@ impl Into<Record> for (u64, &[u8]) {
         let (mut offset, rowid) = varint::read(data);
 
         let mut datatypes = vec![];
-        
+
         //read n of fields
-        while (offset < len) {
+
+        while offset < len {
+            //WRONG, read this len first from the buffer
             let (inc, datatype) = varint::read(&data[offset..]);
             datatypes.push(datatype);
             offset += inc;
         }
 
+        // decode the values
         let mut values: Vec<Value> = vec![];
         for dt in datatypes {
             match dt {

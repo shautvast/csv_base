@@ -6,27 +6,30 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::{
     cmp::Ordering,
-    collections::{BTreeMap, HashMap}
+    collections::{BTreeMap, HashMap},
 };
 
+// work in progress
 #[derive(Debug)]
 pub struct View {
     records: BTreeMap<Key, Key>,
 }
 
+/// table struct
 #[derive(Debug)]
 pub struct Table {
     name: String,
-    cols_by_name: HashMap<String, usize>,
-    pub(crate) cols: Vec<String>,
-    pub(crate) root: Rc<RefCell<Page>>,
-    pub views: HashMap<String, View>,
-    page_ids: ThreadSafeIdGenerator,
-    row_ids: ThreadSafeIdGenerator,
-    current_page: Rc<RefCell<Page>>,
+    cols_by_name: HashMap<String, usize>, // map names to the internal column indexes, for fetching record values
+    pub(crate) cols: Vec<String>,         // column names
+    pub(crate) root: Rc<RefCell<Page>>,   // table root page
+    pub views: HashMap<String, View>, // cache all internally used views // not sure about this design
+    page_ids: ThreadSafeIdGenerator,  // generate page ids
+    row_ids: ThreadSafeIdGenerator,   // generate row ids
+    current_page: Rc<RefCell<Page>>,  // ref to current page for (bulk) loading
 }
 
 impl Table {
+    /// returns a new empty table
     pub fn new(name: impl Into<String>) -> Self {
         let root = Rc::new(RefCell::new(Page::new(PageType::Root, 0)));
         Self {
@@ -52,14 +55,20 @@ impl Table {
         result
     }
 
-    pub fn add_record(&mut self, record: Record) {
+    /// insert a new record
+    /// use: individual insert query, bulk loading
+    pub fn insert(&mut self, record: Record) {
         self.current_page.borrow_mut().insert(record);
     }
 
+    /// true if the column name is contained in the table
     pub fn has_column(&self, name: impl Into<String>) -> bool {
         self.cols_by_name.contains_key(&name.into())
     }
 
+    /// add column, for alter table
+    /// also for computing joins
+    /// allows duplicates by adding an index -> name, name => name, name2
     pub fn add_column(&mut self, name: impl Into<String>, allow_duplicates: bool) {
         let col_index = self.cols.len();
         let orig_name: String = name.into();
@@ -83,6 +92,8 @@ impl Table {
         self.cols.push(name);
     }
 
+    /// from a comma separated list of strings, return the column indexes in the record
+    /// TODO invalid names
     pub fn get_column_indexes(&self, expression: &str) -> Vec<usize> {
         expression
             .split(",")
@@ -91,16 +102,19 @@ impl Table {
     }
 
     pub fn get_index(&self, col_name: &str) -> usize {
-        *self.cols_by_name.get(col_name).unwrap()
+        *self.cols_by_name.get(col_name).unwrap() // TODO handle invalid names better
     }
 
+    // work in progress
     pub fn iter(&self) -> TableIter {
         TableIter {
-            rootPage: Rc::clone(&self.root),
+            root_page: Rc::clone(&self.root),
             index: 0,
         }
     }
 
+    /// iterate records, only returning "subrecords" -> not all columns in the records
+    /// 'select name from table'
     pub fn select_columns<'a>(&'a self, columns: &'a Vec<&'a str>) -> OwnedColIter<'a> {
         OwnedColIter {
             cols: columns,
@@ -108,6 +122,7 @@ impl Table {
         }
     }
 
+    /// iterate the column names
     pub fn iter_colums(&self) -> ColIter {
         ColIter {
             cols: &self.cols,
@@ -115,6 +130,7 @@ impl Table {
         }
     }
 
+    // work in progress
     // pub fn where_clause(&self, colindex: usize, value: &Value) -> Option<&Record> {
     //     for record in self.iter() {
     //         let r = record.get(colindex);
@@ -126,8 +142,10 @@ impl Table {
     // }
 }
 
+// iterators
+
 pub struct TableIter {
-    rootPage: Rc<RefCell<Page>>,
+    root_page: Rc<RefCell<Page>>,
     index: usize,
 }
 
@@ -135,7 +153,7 @@ impl Iterator for TableIter {
     type Item = Record;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.rootPage.borrow().get(self.index)
+        self.root_page.borrow().get(self.index)
     }
 }
 
@@ -175,6 +193,8 @@ impl<'a> Iterator for OwnedColIter<'a> {
     }
 }
 
+/// keys for indexes. Allow compound keys
+// move to separate file
 #[derive(Debug)]
 pub struct Key {
     values: Vec<Value>,

@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::table::Table;
 use crate::value::Value;
 
+// beginnetje
 struct Vm {
     tables: HashMap<String, Table>,
     stack: Vec<Value>,

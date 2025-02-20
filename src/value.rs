@@ -1,8 +1,8 @@
 use std::{cmp::Ordering, fmt::Display};
 
+use crate::varint;
 use anyhow::anyhow;
 use byteorder::{BigEndian, ByteOrder};
-use crate::varint;
 
 #[derive(Debug, Clone, PartialEq, Eq, Ord)]
 pub struct Value {
@@ -69,12 +69,14 @@ impl Value {
         }
     }
 
+    /// get the length of the encoding of the value
     pub fn bytes_len(&self) -> u16 {
         (self.datatype_bytes.len() + self.data.len()) as u16
     }
 
+    // can this be a constant?
     pub fn null() -> Self {
-        Self::new(0 ,vec![])
+        Self::new(0, vec![])
     }
 
     pub fn from_f64(value: f64) -> Self {
@@ -92,14 +94,14 @@ impl Value {
                 (int_datatype(data.len()), data)
             }
         };
-        Self::new(datatype,data)
+        Self::new(datatype, data)
     }
 
     pub fn from_text(value: impl Into<String>) -> Self {
         let value: String = value.into();
         let datatype = (13 + value.len() * 2) as u64;
         let data = value.as_bytes().to_vec();
-        Self::new(datatype,data)
+        Self::new(datatype, data)
     }
 
     pub fn datatype(&self) -> anyhow::Result<Datatype> {
