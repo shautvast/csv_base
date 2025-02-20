@@ -3,7 +3,7 @@ const SLOT_4_2_0: u64 = 0xf01fc07f;
 
 /// varints as implemented in `SQLite`
 
-pub fn write(value: i64) -> Vec<u8> {
+pub fn write(value: u64) -> Vec<u8> {
     let mut v = value;
     if (v & ((0xff00_0000) << 32)) == 0 {
         if v == 0 {
@@ -30,15 +30,15 @@ pub fn write(value: i64) -> Vec<u8> {
     }
 }
 
-pub fn read(data: Vec<u8>) -> u64 {
+pub fn read(data: &[u8]) -> (usize, u64) {
     let mut a = data[0] as u64;
     if (data[0] as i8) >= 0 {
-        return a;
+        return (1,a);
     }
 
     let mut b = data[1] as u64;
     if (b & 0x80) == 0 {
-        return ((a & 0x7f) << 7) | b;
+        return (2,((a & 0x7f) << 7) | b);
     }
 
     a = (a << 14) | data[2] as u64;
@@ -46,7 +46,7 @@ pub fn read(data: Vec<u8>) -> u64 {
         a &= SLOT_2_0;
         b = (b & 0x7f) << 7;
         a |= b;
-        return a;
+        return (3,a);
     }
 
     a &= SLOT_2_0;
@@ -55,7 +55,7 @@ pub fn read(data: Vec<u8>) -> u64 {
     if (b & 0x80) == 0 {
         b &= SLOT_2_0;
         a = (a << 7) | b;
-        return a;
+        return (4,a);
     }
 
     b &= SLOT_2_0;
@@ -67,7 +67,7 @@ pub fn read(data: Vec<u8>) -> u64 {
         b = b << 7;
         a |= b;
         s = s >> 18;
-        return (s << 32) | a;
+        return (5,(s << 32) | a);
     }
 
     s = (s << 7) | b;
@@ -76,7 +76,7 @@ pub fn read(data: Vec<u8>) -> u64 {
         a &= SLOT_2_0;
         a = (a << 7) | b;
         s = s >> 18;
-        return (s << 32) | a;
+        return (6,(s << 32) | a);
     }
 
     a = a << 14;
@@ -87,7 +87,7 @@ pub fn read(data: Vec<u8>) -> u64 {
         b = b << 7;
         a |= b;
         s = s >> 11;
-        return (s << 32) | a;
+        return (7,(s << 32) | a);
     }
 
     a &= SLOT_2_0;
@@ -96,7 +96,7 @@ pub fn read(data: Vec<u8>) -> u64 {
         b &= SLOT_4_2_0;
         a = (a << 7) | b;
         s = s >> 14;
-        return (s << 32) | a;
+        return (8,(s << 32) | a);
     }
 
     a = a << 15;
@@ -109,7 +109,7 @@ pub fn read(data: Vec<u8>) -> u64 {
     b &= 0x7f;
     b = b >> 3;
     s |= b;
-    (s << 32) | a
+    (9,(s << 32) | a)
 }
 
 #[cfg(test)]
@@ -118,15 +118,15 @@ mod test {
 
     #[test]
     fn test_0() {
-        assert_eq!(0, read(write(0)));
+        assert_eq!(0, read(&write(0)).1);
     }
 
     #[test]
     fn test_127() {
-        assert_eq!(127, read(write(127)));
+        assert_eq!(127, read(&write(127)).1);
     }
     #[test]
     fn test_m127() {
-        assert_eq!(398639861, read(write(398639861)));
+        assert_eq!(398639861, read(&write(398639861)).1);
     }
 }

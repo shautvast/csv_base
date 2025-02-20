@@ -2,13 +2,13 @@ use std::{cmp::Ordering, fmt::Display};
 
 use anyhow::anyhow;
 use byteorder::{BigEndian, ByteOrder};
-
-pub const NULL: Value = Value::null();
+use crate::varint;
 
 #[derive(Debug, Clone, PartialEq, Eq, Ord)]
 pub struct Value {
-    datatype: u64,
-    data: Vec<u8>,
+    pub(crate) datatype: u64,
+    pub(crate) datatype_bytes: Vec<u8>,
+    pub(crate) data: Vec<u8>,
 }
 
 impl PartialOrd for Value {
@@ -61,21 +61,26 @@ pub enum Datatype {
 }
 
 impl Value {
-    pub const fn null() -> Self {
-        // NULL
+    fn new(datatype: u64, data: Vec<u8>) -> Self {
         Self {
-            data: vec![],
-            datatype: 0,
+            datatype,
+            data,
+            datatype_bytes: varint::write(datatype),
         }
+    }
+
+    pub fn bytes_len(&self) -> u16 {
+        (self.datatype_bytes.len() + self.data.len()) as u16
+    }
+
+    pub fn null() -> Self {
+        Self::new(0 ,vec![])
     }
 
     pub fn from_f64(value: f64) -> Self {
         let mut buf = vec![0; 8];
         BigEndian::write_f64(&mut buf, value);
-        Self {
-            datatype: 7,
-            data: buf,
-        }
+        Self::new(7, buf)
     }
 
     pub fn from_i64(value: i64) -> Self {
@@ -87,14 +92,14 @@ impl Value {
                 (int_datatype(data.len()), data)
             }
         };
-        Self { datatype, data }
+        Self::new(datatype,data)
     }
 
     pub fn from_text(value: impl Into<String>) -> Self {
         let value: String = value.into();
         let datatype = (13 + value.len() * 2) as u64;
         let data = value.as_bytes().to_vec();
-        Self { datatype, data }
+        Self::new(datatype,data)
     }
 
     pub fn datatype(&self) -> anyhow::Result<Datatype> {

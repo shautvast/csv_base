@@ -9,3 +9,5 @@ pub mod table;
 pub mod value;
 mod varint;
 pub mod vm;
+mod id_sequence;
+mod record;

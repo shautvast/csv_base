@@ -1,32 +1,43 @@
+use crate::id_sequence::ThreadSafeIdGenerator;
+use crate::page::{Page, PageType};
+use crate::record::Record;
+use crate::value::Value;
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::{
     cmp::Ordering,
-    collections::{BTreeMap, HashMap},
-    iter::Map,
-    ops::Add,
+    collections::{BTreeMap, HashMap}
 };
 
-use crate::value::Value;
-
+#[derive(Debug)]
 pub struct View {
     records: BTreeMap<Key, Key>,
 }
 
+#[derive(Debug)]
 pub struct Table {
     name: String,
     cols_by_name: HashMap<String, usize>,
     pub(crate) cols: Vec<String>,
-    pub(crate) records: BTreeMap<Key, Record>,
+    pub(crate) root: Rc<RefCell<Page>>,
     pub views: HashMap<String, View>,
+    page_ids: ThreadSafeIdGenerator,
+    row_ids: ThreadSafeIdGenerator,
+    current_page: Rc<RefCell<Page>>,
 }
 
 impl Table {
     pub fn new(name: impl Into<String>) -> Self {
+        let root = Rc::new(RefCell::new(Page::new(PageType::Root, 0)));
         Self {
             name: name.into(),
             cols_by_name: HashMap::new(),
             cols: vec![],
-            records: BTreeMap::new(),
+            root: Rc::clone(&root),
             views: HashMap::new(),
+            page_ids: ThreadSafeIdGenerator::new(1),
+            row_ids: ThreadSafeIdGenerator::new(0),
+            current_page: root,
         }
     }
 
@@ -42,8 +53,7 @@ impl Table {
     }
 
     pub fn add_record(&mut self, record: Record) {
-        let index = self.records.len();
-        self.records.insert(Key::integer(index), record);
+        self.current_page.borrow_mut().insert(record);
     }
 
     pub fn has_column(&self, name: impl Into<String>) -> bool {
@@ -85,12 +95,9 @@ impl Table {
     }
 
     pub fn iter(&self) -> TableIter {
-        self.iter_records()
-    }
-
-    pub fn iter_records(&self) -> TableIter {
         TableIter {
-            table_iter: self.records.iter(),
+            rootPage: Rc::clone(&self.root),
+            index: 0,
         }
     }
 
@@ -108,69 +115,27 @@ impl Table {
         }
     }
 
-    pub fn where_clause(&self, colindex: usize, value: &Value) -> Option<&Record> {
-        for record in self.iter_records() {
-            let r = record.get(colindex);
-            if r == value {
-                return Some(record);
-            }
-        }
-        None
-    }
+    // pub fn where_clause(&self, colindex: usize, value: &Value) -> Option<&Record> {
+    //     for record in self.iter() {
+    //         let r = record.get(colindex);
+    //         if r == value {
+    //             return Some(record);
+    //         }
+    //     }
+    //     None
+    // }
 }
 
-#[derive(Debug, Clone)]
-pub struct Record {
-    values: Vec<Value>,
+pub struct TableIter {
+    rootPage: Rc<RefCell<Page>>,
+    index: usize,
 }
 
-impl Record {
-    pub fn string_len(&self) -> usize {
-        self.values.iter().map(Value::string_len).sum()
-    }
-
-    pub fn add_value(&mut self, value: impl Into<Value>) {
-        self.values.push(value.into());
-    }
-
-    pub fn get(&self, index: usize) -> &Value {
-        self.values.get(index).unwrap() //TODO
-    }
-}
-
-impl Add for &Record {
-    type Output = Record;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        let mut sum = Record::default();
-        sum.values.append(&mut self.values.clone());
-        sum.values.append(&mut rhs.values.clone()); // use refs?
-        sum
-    }
-}
-
-impl Default for Record {
-    fn default() -> Self {
-        Self { values: vec![] }
-    }
-}
-
-pub struct TableIter<'a> {
-    table_iter: std::collections::btree_map::Iter<'a, Key, Record>,
-}
-
-pub struct ViewIter<'a> {
-    iter: Map<
-        std::collections::btree_map::Iter<'a, Key, Key>,
-        Box<dyn Fn((&'a Key, &'a Key)) -> Option<&'a Record>>,
-    >,
-}
-
-impl<'a> Iterator for TableIter<'a> {
-    type Item = &'a Record;
+impl Iterator for TableIter {
+    type Item = Record;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.table_iter.next().map(|e| e.1)
+        self.rootPage.borrow().get(self.index)
     }
 }
 

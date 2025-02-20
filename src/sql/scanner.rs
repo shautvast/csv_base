@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::anyhow;
 
-use crate::value::{Value, NULL};
+use crate::value::Value;
 
 use super::tokens::{Token, TokenType};
 
@@ -154,7 +154,7 @@ impl Scanner {
 
     fn add_token(&mut self, tokentype: TokenType) {
         let text = self.source[self.start..self.current].to_string();
-        self.tokens.push(Token::new(tokentype, text, NULL));
+        self.tokens.push(Token::new(tokentype, text, Value::null()));
     }
 
     fn add_literal(&mut self, tokentype: TokenType, literal: Value) {

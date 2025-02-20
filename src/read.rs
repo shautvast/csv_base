@@ -1,5 +1,7 @@
-use crate::table::{Record, Table};
+use crate::table::Table;
+
 use std::fs;
+use crate::record::Record;
 
 const EOL: &str = "\n";
 

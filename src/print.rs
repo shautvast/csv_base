@@ -27,7 +27,7 @@ impl Table {
             print!("| {:<w$} ", col);
         }
         println!("|");
-        for record in self.iter_records() {
+        for record in self.iter() {
             for col in self.iter_colums() {
                 let w = column_widths.get(col).unwrap_or(&0);
                 // eprintln!("{}", w);
@@ -45,7 +45,7 @@ impl Table {
             print!("| {:<w$} ", col);
         }
         println!("|");
-        for record in self.iter_records() {
+        for record in self.iter() {
             for col in self.select_columns(&columns) {
                 let w = column_widths.get(col).unwrap_or(&0);
                 // eprintln!("{}", w);
@@ -66,7 +66,7 @@ impl Table {
         for col in self.iter_colums() {
             widths.insert(col, col.len());
         }
-        for record in self.iter_records().skip(offset).take(nrecords) {
+        for record in self.iter().skip(offset).take(nrecords) {
             for col in self.iter_colums() {
                 let e = widths.get_mut(&col).unwrap();
                 let index = self.get_index(col);
@@ -92,7 +92,7 @@ impl Table {
         for col in self.select_columns(columns) {
             widths.insert(col, col.len());
         }
-        for record in self.iter_records().skip(offset).take(nrecords) {
+        for record in self.iter().skip(offset).take(nrecords) {
             for col in self.select_columns(columns) {
                 let e = widths.get_mut(&col).unwrap();
                 let index = self.get_index(&col);
